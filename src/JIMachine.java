@@ -12,32 +12,59 @@ import javafx.scene.layout.HBox;
 import java.io.File;
 import java.net.MalformedURLException;
 
+/**
+ * A class of application to display and manipulate image files.
+ */
 public class JIMachine extends Application {
-  private final double ORIGINAL_PROPORTION = 1.0;
-  private final double STEP_PROPORTION = 0.25;
+  /** The original proportion of display. */
+  private final double originalproportion = 1.0;
+  /** Increment of proportion of each steps. */
+  private final double stepProportion = 0.25;
+  /** Pixels between buttons. */
+  private final int sapceBetweenButtons = 20;
 
-  private double displayProportion = ORIGINAL_PROPORTION;
+  /** the display proportion of currently opened image. */
+  private double displayProportion = originalproportion;
+  /** the width of currently opened image. */
   private double imageWidth = 0.0;
+  /** the height of currently opened image. */
   private double imageHeight = 0.0;
 
+  /**
+   * Getter function of image proportion setting.
+   * @return the image display proportion
+   */
   public double getProportion() {
     return displayProportion;
   }
 
+  /**
+   * Set the original display proportion of the image.
+   */
   public void setOriginalProportion() {
-    displayProportion = ORIGINAL_PROPORTION;
+    displayProportion = originalproportion;
   }
 
+  /**
+   * Increase the display proportion of the image.
+   */
   public void increaseProportion() {
-    displayProportion *= (1 + STEP_PROPORTION);
+    displayProportion *= (1 + stepProportion);
   }
 
+  /**
+   * Decrease the display proportion of the image.
+   */
   public void decreaseProportion() {
-    displayProportion *= (1 - STEP_PROPORTION);
+    displayProportion *= (1 - stepProportion);
   }
 
+  /**
+   * A borderPane to organize the basic elements of the JIMachine.
+   * @return a set-up pane
+   */
   protected BorderPane getPane() {
-    HBox paneForButtons = new HBox(20);
+    HBox paneForButtons = new HBox(sapceBetweenButtons);
     Button openFileButton = new Button("Open File");
     Button zoomInButton = new Button("Zoom In");
     Button originalSizeButton = new Button("100% Size");
@@ -88,7 +115,7 @@ public class JIMachine extends Application {
     });
 
     zoomInButton.setOnAction(e -> {
-      decreaseProportion();
+      increaseProportion();
       imageView.setFitWidth(imageWidth * getProportion());
       imageView.setFitHeight(imageHeight * getProportion());
       Stage stage = (Stage) zoomInButton.getScene().getWindow();
@@ -104,7 +131,7 @@ public class JIMachine extends Application {
     });
 
     zoomOutButton.setOnAction(e -> {
-      increaseProportion();
+      decreaseProportion();
       imageView.setFitWidth(imageWidth * getProportion());
       imageView.setFitHeight(imageHeight * getProportion());
       Stage stage = (Stage) zoomOutButton.getScene().getWindow();
@@ -119,8 +146,12 @@ public class JIMachine extends Application {
     return pane;
   }
 
+  /**
+   * An start function to start the application.
+   * @param primaryStage the main stage of the application
+   */
   @Override
-  public void start(Stage primaryStage) {
+  public void start(final Stage primaryStage) {
     Scene scene = new Scene(getPane());
     primaryStage.setTitle("JIMachine");
     primaryStage.setScene(scene);
