@@ -19,7 +19,6 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -62,27 +61,13 @@ public class JIMachine extends Application {
   private double imageWidth = 0.0;
   /** the height of currently opened image. */
   private double imageHeight = 0.0;
-  List<Image> imageList = new ArrayList<>();
-  List<String> imageCaptions = new ArrayList<>();
+  ArrayList<Image> imageList = new ArrayList<>();
+  ArrayList<String> imageCaptions = new ArrayList<>();
   private int currentImageIndex = 0;
   boolean isThumbnailView = false;
+  boolean isCaptionChanged = false;
   String currentDirectory = null;
-
-  class Ablum implements Serializable
-  {
-    public int imageIndex;
-    public String directory;
-    public boolean viewMode;
-
-    // Default constructor
-    public Ablum(int imageIndex, String directory, boolean viewMode)
-    {
-      this.imageIndex = imageIndex;
-      this.directory = directory;
-      this.viewMode = viewMode;
-    }
-
-  }
+  String albumSavePath = null;
 
   /**
    * Getter function of image proportion setting.
@@ -122,7 +107,9 @@ public class JIMachine extends Application {
   private void getAllImages(String directory, String currentFile) {
     try {
       imageList.clear();
-      imageCaptions.clear();
+      if (!isCaptionChanged) {
+        imageCaptions.clear();
+      }
       File dir = new File(directory);
       if (dir.isDirectory()) {
         for (File file : dir.listFiles(IMAGE_FILTER)) {
@@ -130,7 +117,9 @@ public class JIMachine extends Application {
             currentImageIndex = imageList.size();
           }
           imageList.add(new Image(new FileInputStream(file)));
-          imageCaptions.add(file.getName());
+          if (!isCaptionChanged) {
+            imageCaptions.add(file.getName());
+          }
         }
       }
     } catch (IOException e) {
@@ -360,6 +349,7 @@ public class JIMachine extends Application {
         try {
           String pathStr = selectedFile.toURI().getPath();
           currentDirectory = pathStr.substring(0, pathStr.lastIndexOf('/'));
+          isCaptionChanged = false;
           getAllImages(currentDirectory, pathStr);
           Image image =
             new Image(selectedFile.toURI().toURL().toExternalForm());
@@ -472,6 +462,7 @@ public class JIMachine extends Application {
     });
 
     captionsButton.setOnAction(e -> {
+      isCaptionChanged = true;
       if (currentImageIndex < imageCaptions.size()) {
         TextInputDialog dialog = new TextInputDialog(imageCaptions.get(currentImageIndex));
 
@@ -496,7 +487,88 @@ public class JIMachine extends Application {
     });
 
     saveAlbumButton.setOnAction(e -> {
-      
+      Album object = new Album(currentImageIndex, currentDirectory, isThumbnailView, isCaptionChanged, imageCaptions);
+      if (albumSavePath == null) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Specify a path and a filename to save the Album");
+        File selectedFile = fileChooser
+          .showOpenDialog(saveAlbumButton.getScene().getWindow());
+        if (selectedFile != null) {
+          albumSavePath = selectedFile.toURI().getPath();
+        }
+      }
+
+      // Serialization
+      try {
+        //Saving of object in a file
+        FileOutputStream file = new FileOutputStream(albumSavePath);
+        ObjectOutputStream out = new ObjectOutputStream(file);
+
+        // Method for serialization of object
+        out.writeObject(object);
+
+        out.close();
+        file.close();
+
+      } catch(IOException ex) {
+        System.out.println(ex);
+      }
+    });
+
+    openAlbumButton.setOnAction(e -> {
+      Album object = null;
+      FileChooser fileChooser = new FileChooser();
+      fileChooser.setTitle("Select a file to open an Album");
+      File selectedFile = fileChooser
+        .showOpenDialog(saveAlbumButton.getScene().getWindow());
+      if (selectedFile != null) {
+        // Deserialization
+        try {
+          // Reading the object from a file
+          FileInputStream file = new FileInputStream(selectedFile.toURI().getPath());
+          ObjectInputStream in = new ObjectInputStream(file);
+
+          // Method for deserialization of object
+          object = (Album) in.readObject();
+
+          in.close();
+          file.close();
+
+          currentDirectory = object.directory;
+          getAllImages(currentDirectory, null);
+          currentImageIndex = object.imageIndex;
+          isThumbnailView = object.viewMode;
+          isCaptionChanged = object.captionChanged;
+          imageCaptions = object.captions;
+          if (isThumbnailView) {
+            if (!imageList.isEmpty()) {
+              pane.getChildren().remove(1);
+              pane.setCenter(thumbnailTilePane(pane, imageView, singlePictureRegion));
+            }
+          } else {
+            if (!imageList.isEmpty()) {
+              imageView.setImage(imageList.get(currentImageIndex));
+              imageWidth = imageList.get(currentImageIndex).getWidth();
+              imageHeight = imageList.get(currentImageIndex).getHeight();
+              setOriginalProportion();
+              imageView.setFitWidth(imageWidth * getProportion());
+              imageView.setFitHeight(imageHeight * getProportion());
+              imageView.setPreserveRatio(false);
+              if (currentImageIndex < imageCaptions.size()) {
+                Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+                singlePictureRegion.getChildren().remove(1);
+                singlePictureRegion.getChildren().add(newLabel);
+              }
+              pane.getChildren().remove(1);
+              pane.setCenter(singlePictureRegion);
+            }
+          }
+        } catch(IOException ex) {
+          System.out.println("IOException is caught");
+        } catch(ClassNotFoundException ex) {
+          System.out.println("ClassNotFoundException is caught");
+        }
+      }
     });
 
     quitButton.setOnAction(e -> {
