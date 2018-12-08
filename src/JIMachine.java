@@ -1,9 +1,12 @@
 import javafx.application.Application;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.TilePane;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.geometry.Pos;
@@ -12,14 +15,12 @@ import javafx.scene.control.Button;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FilenameFilter;
-import java.io.IOException;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A class of application to display and manipulate image files.
@@ -32,11 +33,11 @@ public class JIMachine extends Application {
   /** Pixels between buttons. */
   private static final int SPACE_BETWEEN_BUTTONS = 20;
   /** Pixels between buttons. */
-  private static final int SPACE_BETWEEN_THUMBNAIL = 100;
+  private static final int SPACE_BETWEEN_THUMBNAIL = 200;
   /** The original width of scene in pixels. */
-  private static final int ORIGINAL_WIDTH = 800;
+  private static final int ORIGINAL_WIDTH = 1000;
   /** The original height of scene in pixels.*/
-  private static final int ORIGINAL_HEIGHT = 600;
+  private static final int ORIGINAL_HEIGHT = 800;
   /** Total images in Thumbnail View. */
   private static final int THUMBNAIL_TOTAL = 4;
   /** The original width of thumbnail in pixels. */
@@ -62,9 +63,26 @@ public class JIMachine extends Application {
   /** the height of currently opened image. */
   private double imageHeight = 0.0;
   List<Image> imageList = new ArrayList<>();
-  private String currentDirectory;
+  List<String> imageCaptions = new ArrayList<>();
   private int currentImageIndex = 0;
   boolean isThumbnailView = false;
+  String currentDirectory = null;
+
+  class Ablum implements Serializable
+  {
+    public int imageIndex;
+    public String directory;
+    public boolean viewMode;
+
+    // Default constructor
+    public Ablum(int imageIndex, String directory, boolean viewMode)
+    {
+      this.imageIndex = imageIndex;
+      this.directory = directory;
+      this.viewMode = viewMode;
+    }
+
+  }
 
   /**
    * Getter function of image proportion setting.
@@ -98,37 +116,50 @@ public class JIMachine extends Application {
   /**
    * Returns all jpg images from a directory in an array.
    *
-   * @param directory                 the directory to start with
-   * @return an ArrayList<Image> containing all the files or nul if none are found..
-   * @throws IOException
+   * @param directory  the directory to start with
+   * @param currentFile the current select file name
    */
-  public ArrayList<Image> getAllImages(String directory) {
+  private void getAllImages(String directory, String currentFile) {
     try {
-      ArrayList<Image> resultList = new ArrayList<>();
+      imageList.clear();
+      imageCaptions.clear();
       File dir = new File(directory);
       if (dir.isDirectory()) {
         for (File file : dir.listFiles(IMAGE_FILTER)) {
-          resultList.add(new Image(new FileInputStream(file)));
+          if (file.toURI().getPath().equals(currentFile)) {
+            currentImageIndex = imageList.size();
+          }
+          imageList.add(new Image(new FileInputStream(file)));
+          imageCaptions.add(file.getName());
         }
       }
-      return resultList;
     } catch (IOException e) {
+      System.out.println(e);
     }
-    return new ArrayList<>();
   }
 
   private ImageView createThumbnailView(final int imageNumber) {
     ImageView thumbnailView = new ImageView();
     thumbnailView.setFitHeight(THUMBNAIL_HEIGHT);
     thumbnailView.setFitWidth(THUMBNAIL_WIDTH);
-    if (imageNumber < imageList.size()) {
+    if (imageNumber <= imageList.size()) {
       thumbnailView.setImage(imageList.get((imageNumber + currentImageIndex - 1) % imageList.size()));
     }
     return thumbnailView;
   }
 
-  private TilePane thumbnailTilePane(BorderPane pane, ImageView imageView, HBox singlePictureRegion) {
+  private Label createThumbnailLabel(final int imageNumber) {
+    Label thumbnailLabel = new Label();
+    if (imageNumber <= imageList.size()) {
+      thumbnailLabel = new Label((imageCaptions.get((imageNumber + currentImageIndex - 1) % imageList.size())));
+    }
+    return thumbnailLabel;
+  }
+
+  private TilePane thumbnailTilePane(BorderPane pane, ImageView imageView, VBox singlePictureRegion) {
     TilePane tilePane = new TilePane();
+    Label thumbLabel1 = createThumbnailLabel(1);
+    thumbLabel1.setMaxWidth(150);
     ImageView thumbView1 = createThumbnailView(1);
     if (imageList.size() >= 1) {
       thumbView1.setOnMouseClicked(mouseEvent -> {
@@ -142,12 +173,22 @@ public class JIMachine extends Application {
             imageView.setFitWidth(imageWidth * getProportion());
             imageView.setFitHeight(imageHeight * getProportion());
             imageView.setPreserveRatio(false);
+            if (currentImageIndex < imageCaptions.size()) {
+              Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+              singlePictureRegion.getChildren().remove(1);
+              singlePictureRegion.getChildren().add(newLabel);
+            }
             pane.setCenter(singlePictureRegion);
             isThumbnailView = false;
           }
         }
       });
     }
+    VBox imageBox1 = new VBox();
+    imageBox1.getChildren().addAll(thumbView1, thumbLabel1);
+    imageBox1.setAlignment(Pos.CENTER);
+    Label thumbLabel2 = createThumbnailLabel(2);
+    thumbLabel2.setMaxWidth(150);
     ImageView thumbView2 = createThumbnailView(2);
     if (imageList.size() >= 2) {
       thumbView2.setOnMouseClicked(mouseEvent -> {
@@ -162,13 +203,23 @@ public class JIMachine extends Application {
             imageView.setFitWidth(imageWidth * getProportion());
             imageView.setFitHeight(imageHeight * getProportion());
             imageView.setPreserveRatio(false);
+            if (currentImageIndex < imageCaptions.size()) {
+              Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+              singlePictureRegion.getChildren().remove(1);
+              singlePictureRegion.getChildren().add(newLabel);
+            }
             pane.setCenter(singlePictureRegion);
             isThumbnailView = false;
           }
         }
       });
     }
+    VBox imageBox2 = new VBox();
+    imageBox2.getChildren().addAll(thumbView2, thumbLabel2);
+    imageBox2.setAlignment(Pos.CENTER);
+    Label thumbLabel3 = createThumbnailLabel(3);
     ImageView thumbView3 = createThumbnailView(3);
+    thumbLabel3.setMaxWidth(150);
     if (imageList.size() >= 3) {
       thumbView3.setOnMouseClicked(mouseEvent -> {
         if(mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
@@ -182,12 +233,22 @@ public class JIMachine extends Application {
             imageView.setFitWidth(imageWidth * getProportion());
             imageView.setFitHeight(imageHeight * getProportion());
             imageView.setPreserveRatio(false);
+            if (currentImageIndex < imageCaptions.size()) {
+              Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+              singlePictureRegion.getChildren().remove(1);
+              singlePictureRegion.getChildren().add(newLabel);
+            }
             pane.setCenter(singlePictureRegion);
             isThumbnailView = false;
           }
         }
       });
     }
+    VBox imageBox3 = new VBox();
+    imageBox3.getChildren().addAll(thumbView3, thumbLabel3);
+    imageBox3.setAlignment(Pos.CENTER);
+    Label thumbLabel4 = createThumbnailLabel(4);
+    thumbLabel4.setMaxWidth(150);
     ImageView thumbView4 = createThumbnailView(4);
     if (imageList.size() >= 4) {
       thumbView4.setOnMouseClicked(mouseEvent -> {
@@ -202,15 +263,23 @@ public class JIMachine extends Application {
             imageView.setFitWidth(imageWidth * getProportion());
             imageView.setFitHeight(imageHeight * getProportion());
             imageView.setPreserveRatio(false);
+            if (currentImageIndex < imageCaptions.size()) {
+              Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+              singlePictureRegion.getChildren().remove(1);
+              singlePictureRegion.getChildren().add(newLabel);
+            }
             pane.setCenter(singlePictureRegion);
             isThumbnailView = false;
           }
         }
       });
     }
-    tilePane.getChildren().addAll(thumbView1, thumbView2, thumbView3, thumbView4);
+    VBox imageBox4 = new VBox();
+    imageBox4.getChildren().addAll(thumbView4, thumbLabel4);
+    imageBox4.setAlignment(Pos.CENTER);
+    tilePane.getChildren().addAll(imageBox1, imageBox2, imageBox3, imageBox4);
     tilePane.setPrefColumns(2);
-    tilePane.setMaxWidth(300);
+    tilePane.setMaxWidth(650);
     tilePane.setHgap(SPACE_BETWEEN_THUMBNAIL);
     tilePane.setVgap(SPACE_BETWEEN_THUMBNAIL);
     tilePane.setAlignment(Pos.CENTER);
@@ -228,8 +297,11 @@ public class JIMachine extends Application {
     Button previousButton = new Button("Previous");
     Button nextButton = new Button("Next");
     Button zoomInButton = new Button("Zoom In");
-    Button originalSizeButton = new Button("100% Size");
+    Button originalSizeButton = new Button("100%");
     Button zoomOutButton = new Button("Zoom Out");
+    Button captionsButton = new Button("Captions");
+    Button saveAlbumButton = new Button("Save Album");
+    Button openAlbumButton = new Button("Open Album");
     Button quitButton = new Button("Quit");
 
     paneForButtons.getChildren().addAll(openFileButton,
@@ -239,6 +311,9 @@ public class JIMachine extends Application {
       zoomInButton,
       originalSizeButton,
       zoomOutButton,
+      captionsButton,
+      saveAlbumButton,
+      openAlbumButton,
       quitButton);
     paneForButtons.setAlignment(Pos.CENTER);
 
@@ -246,9 +321,10 @@ public class JIMachine extends Application {
     pane.setTop(paneForButtons);
 
     ImageView imageView = new ImageView();
-    currentDirectory = Paths.get("").toAbsolutePath().toString();
-    imageList.clear();
-    imageList = getAllImages(currentDirectory);
+    if (currentDirectory == null) {
+      currentDirectory = Paths.get("").toUri().getPath();
+    }
+    getAllImages(currentDirectory, null);
 
     if (imageList != null && !imageList.isEmpty()) {
       imageView.setImage(imageList.get(currentImageIndex));
@@ -259,8 +335,12 @@ public class JIMachine extends Application {
       imageView.setFitHeight(imageHeight * getProportion());
       imageView.setPreserveRatio(false);
     }
-    HBox singlePictureRegion = new HBox();
-    singlePictureRegion.getChildren().add(imageView);
+    Label imageLabel = new Label();
+    if (currentImageIndex < imageCaptions.size()) {
+      imageLabel = new Label(imageCaptions.get(currentImageIndex));
+    }
+    VBox singlePictureRegion = new VBox();
+    singlePictureRegion.getChildren().addAll(imageView, imageLabel);
     singlePictureRegion.setAlignment(Pos.CENTER);
     if (isThumbnailView) {
       pane.setCenter(thumbnailTilePane(pane, imageView, singlePictureRegion));
@@ -278,6 +358,9 @@ public class JIMachine extends Application {
         .showOpenDialog(openFileButton.getScene().getWindow());
       if (selectedFile != null) {
         try {
+          String pathStr = selectedFile.toURI().getPath();
+          currentDirectory = pathStr.substring(0, pathStr.lastIndexOf('/'));
+          getAllImages(currentDirectory, pathStr);
           Image image =
             new Image(selectedFile.toURI().toURL().toExternalForm());
           imageView.setImage(image);
@@ -286,6 +369,16 @@ public class JIMachine extends Application {
           setOriginalProportion();
           imageView.setFitWidth(imageWidth * getProportion());
           imageView.setFitHeight(imageHeight * getProportion());
+          if (currentImageIndex < imageCaptions.size()) {
+            Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+            singlePictureRegion.getChildren().remove(1);
+            singlePictureRegion.getChildren().add(newLabel);
+          }
+          if (isThumbnailView) {
+            isThumbnailView = false;
+            pane.getChildren().remove(1);
+            pane.setCenter(singlePictureRegion);
+          }
         } catch (MalformedURLException e1) {
           System.out.println(e1);
         }
@@ -322,6 +415,11 @@ public class JIMachine extends Application {
           imageView.setFitWidth(imageWidth * getProportion());
           imageView.setFitHeight(imageHeight * getProportion());
           imageView.setPreserveRatio(false);
+          if (currentImageIndex < imageCaptions.size()) {
+            Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+            singlePictureRegion.getChildren().remove(1);
+            singlePictureRegion.getChildren().add(newLabel);
+          }
         }
       }
     });
@@ -346,6 +444,11 @@ public class JIMachine extends Application {
           imageView.setFitWidth(imageWidth * getProportion());
           imageView.setFitHeight(imageHeight * getProportion());
           imageView.setPreserveRatio(false);
+          if (currentImageIndex < imageCaptions.size()) {
+            Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+            singlePictureRegion.getChildren().remove(1);
+            singlePictureRegion.getChildren().add(newLabel);
+          }
         }
       }
     });
@@ -366,6 +469,34 @@ public class JIMachine extends Application {
       decreaseProportion();
       imageView.setFitWidth(imageWidth * getProportion());
       imageView.setFitHeight(imageHeight * getProportion());
+    });
+
+    captionsButton.setOnAction(e -> {
+      if (currentImageIndex < imageCaptions.size()) {
+        TextInputDialog dialog = new TextInputDialog(imageCaptions.get(currentImageIndex));
+
+        dialog.setTitle("Captions Dialog");
+        dialog.setHeaderText("Enter new Caption of your image:");
+        dialog.setContentText("Caption:");
+
+        Optional<String> result = dialog.showAndWait();
+
+        if (result.isPresent()) {
+          imageCaptions.set(currentImageIndex, result.get());
+          Label newLabel = new Label(imageCaptions.get(currentImageIndex));
+          if (isThumbnailView) {
+            pane.getChildren().remove(1);
+            pane.setCenter(thumbnailTilePane(pane, imageView, singlePictureRegion));
+          } else {
+            singlePictureRegion.getChildren().remove(1);
+            singlePictureRegion.getChildren().add(newLabel);
+          }
+        }
+      }
+    });
+
+    saveAlbumButton.setOnAction(e -> {
+      
     });
 
     quitButton.setOnAction(e -> {
